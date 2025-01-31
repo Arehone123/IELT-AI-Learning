@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IELTS Speaking Test Simulation</title>
+    <script src="https://cdn.jsdelivr.net/npm/microsoft-cognitiveservices-speech-sdk@1.20.0/dist/browser/microsoft.cognitiveservices.speech.sdk.bundle.js"></script>
+</head>
+<body>
+<h1>IELTS Speaking Test Simulation</h1>
+
+<!-- Instructions for the user -->
+<p>Click the button below to start practicing your pronunciation.</p>
+
+<!-- Button to start pronunciation practice -->
+<button id="start-practice">Start Practice</button>
+
+<!-- Feedback section -->
+<div id="feedback-content">
+    <h2>Your Pronunciation Feedback</h2>
+    <p>Results will appear here after you complete the test.</p>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const subscriptionKey = "YourAzureSubscriptionKey"; // Replace with your Azure Speech API subscription key
+        const serviceRegion = "YourAzureRegion"; // Replace with your Azure region
+        const referenceText = "The quick brown fox jumps over the lazy dog."; // Reference text for assessment
+
+        // Get the button and feedback content area
+        const startButton = document.getElementById("start-practice");
+        const feedbackContent = document.getElementById("feedback-content");
+
+        startButton.addEventListener("click", startRecognition);
+
+        // Function to start the speech recognition and pronunciation assessment
+        function startRecognition() {
+            const sdk = window.SpeechSDK; // Access the Speech SDK
+            const speechConfig = sdk.SpeechConfig.fromSubscription(subscriptionKey, serviceRegion);
+            speechConfig.speechRecognitionLanguage = "en-US"; // Set language for recognition
+
+            // Use microphone as audio input
+            const audioConfig = sdk.AudioConfig.fromDefaultMicrophoneInput();
+            const recognizer = new sdk.SpeechRecognizer(speechConfig, audioConfig);
+
+            // Set up pronunciation assessment configuration
+            const pronunciationConfig = new sdk.PronunciationAssessmentConfig(
+                referenceText,
+                sdk.PronunciationAssessmentGradingSystem.HundredMark,
+                sdk.PronunciationAssessmentGranularity.Phoneme,
+                true
+            );
+            pronunciationConfig.enableProsodyAssessment();  // Enable prosody assessment
+            pronunciationConfig.applyTo(recognizer);
+
+            // Event listener for when speech is recognized
+            recognizer.recognized = function (s, e) {
+                if (e.result.reason === sdk.ResultReason.RecognizedSpeech) {
+                    const pronunciationResult = sdk.PronunciationAssessmentResult.fromResult(e.result);
+
+                    // Display feedback to the user
+                    feedbackContent.innerHTML = `
+                            <p><strong>Pronunciation Score:</strong> ${pronunciationResult.pronunciationScore}</p>
+                            <p><strong>Accuracy Score:</strong> ${pronunciationResult.accuracyScore}</p>
+                            <p><strong>Fluency Score:</strong> ${pronunciationResult.fluidityScore}</p>
+                            <p><strong>Completeness Score:</strong> ${pronunciationResult.completenessScore}</p>
+                            <p><strong>Prosody Score:</strong> ${pronunciationResult.prosodyScore}</p>
+                        `;
+                }
+            };
+
+            // Event listener for when recognition is canceled or errors occur
+            recognizer.canceled = function (s, e) {
+                if (e.reason === sdk.CancellationReason.Error) {
+                    feedbackContent.innerHTML = `<p><strong>Error: </strong>${e.errorDetails}</p>`;
+                }
+            };
+
+            // Start continuous recognition
+            recognizer.startContinuousRecognitionAsync();
+        }
+    });
+</script>
+</body>
+</html>

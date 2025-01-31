@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IELTS Speaking Test Simulation</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://aka.ms/csspeech/jsbrowserpackageraw"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/difflib/0.1.2/difflib.min.js"></script>
+
+    <link href="styles.css" rel="stylesheet">
+
+    <style>
+        /* Tailwind Customizations */
+        @layer utilities {
+            .bg-indigo-600 {
+                background-color: #4F46E5; /* Tailwind Indigo color */
+            }
+            .bg-indigo-100 {
+                background-color: #E0E7FF; /* Lighter Indigo */
+            }
+        }
+
+        /* LESS for more specific custom styling */
+        @base-color: #4F46E5; /* Main Brand Color */
+        @accent-color: #6366F1;
+
+        .button {
+            background-color: @base-color;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+
+            &:hover {
+                background-color: @accent-color;
+            }
+        }
+
+        .card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+
+            &:hover {
+                transform: scale(1.05);
+            }
+        }
+
+    </style>
+
+</head>
+<body class="bg-gray-50">
+<header class="bg-indigo-600 text-white p-4">
+    <div class="container mx-auto flex justify-between items-center">
+        <h1 class="text-2xl font-semibold">IELTS Speaking Test Simulation</h1>
+        <nav>
+            <ul class="flex space-x-6">
+                <li><a href="#intro" class="hover:text-indigo-200">Home</a></li>
+                <li><a href="#test" class="hover:text-indigo-200">Start Test</a></li>
+                <li><a href="#feedback" class="hover:text-indigo-200">Feedback</a></li>
+            </ul>
+        </nav>
+    </div>
+</header>
+
+<main>
+
+    <section id="intro" class="text-center py-12">
+        <h2 class="text-4xl font-bold text-indigo-700 mb-4">Improve Your Speaking Skills</h2>
+        <p class="text-lg text-gray-600">Practice your English speaking with real-time feedback using our IELTS Speaking Test Simulation tool.</p>
+    </section>
+
+
+    <section id="test" class="bg-indigo-100 py-16">
+        <div class="container mx-auto text-center">
+            <h3 class="text-3xl font-bold text-indigo-700 mb-8">Choose Your Test Mode</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition">
+                    <h4 class="text-xl font-semibold text-indigo-700 mb-4">Practice Mode</h4>
+                    <p class="text-gray-600 mb-4">Get immediate feedback as you practice speaking. Perfect for improving fluency and pronunciation.</p>
+                    <button id="start-practice" class="bg-indigo-600 text-white py-2 px-4 rounded-full">Start Practice</button>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition">
+                    <h4 class="text-xl font-semibold text-indigo-700 mb-4">Test Mode</h4>
+                    <p class="text-gray-600 mb-4">Simulate a full IELTS speaking test. Get detailed performance assessment and feedback.</p>
+                    <button id="start-test" class="bg-indigo-600 text-white py-2 px-4 rounded-full">Start Test</button>
+                </div>
+            </div>
+            <div class="mt-8">
+                <button id="stop-recording" class="bg-red-600 text-white py-2 px-4 rounded-full hidden">Stop Recording</button>
+                <button id="assess-pronunciation" class="bg-green-600 text-white py-2 px-4 rounded-full hidden">Assess Pronunciation</button>
+                <p id="recording-duration" class="text-gray-600 mt-4 hidden">Recording Duration: <span id="duration">0</span> seconds</p>
+            </div>
+        </div>
+    </section>
+
+
+    <section id="feedback" class="py-12 text-center">
+        <h3 class="text-3xl font-semibold text-indigo-700 mb-6">Your Feedback</h3>
+        <div id="feedback-content" class="max-w-3xl mx-auto text-lg text-gray-600">
+            <p>Results will appear here after you complete the test.</p>
+        </div>
+    </section>
+</main>
+
+<footer class="bg-indigo-600 text-white p-4 text-center">
+    <p>&copy; 2025 IELTS Speaking Test Simulation. All rights reserved.</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/microsoft-cognitiveservices-speech-sdk@1.20.0/dist/browser/microsoft.cognitiveservices.speech.sdk.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/difflib/0.1.2/difflib.min.js"></script>
+
+<script >
+    document.addEventListener("DOMContentLoaded", function () {
+        const startPracticeButton = document.getElementById("start-practice");
+        const startTestButton = document.getElementById("start-test");
+        const stopRecordingButton = document.getElementById("stop-recording");
+        const assessPronunciationButton = document.getElementById("assess-pronunciation");
+        const durationDisplay = document.getElementById("recording-duration");
+        const durationSpan = document.getElementById("duration");
+        const feedbackContent = document.getElementById("feedback-content");
+
+        const subscriptionKey = "YourSubscriptionKey"; // Replace with your subscription key
+        const serviceRegion = "YourServiceRegion"; // Replace with your service region
+        const referenceText = "Today was a beautiful day. We had a great time taking a long walk outside in the morning. The countryside was in full bloom, yet the air was crisp and cold. Towards the end of the day, clouds came in, forecasting much needed rain.";
+
+        let reco;
+        let recordingStartTime;
+        let recordingInterval;
+        let currentText = [];
+
+        startPracticeButton.addEventListener("click", () => startRecognition("practice"));
+        startTestButton.addEventListener("click", () => startRecognition("test"));
+        stopRecordingButton.addEventListener("click", stopRecognition);
+        assessPronunciationButton.addEventListener("click", assessPronunciation);
+
+        function startRecognition(mode) {
+            const sdk = window.SpeechSDK;
+            const speechConfig = sdk.SpeechConfig.fromSubscription(subscriptionKey, serviceRegion);
+            speechConfig.speechRecognitionLanguage = "en-US";
+
+            const audioConfig = sdk.AudioConfig.fromDefaultMicrophoneInput();
+            reco = new sdk.SpeechRecognizer(speechConfig, audioConfig);
+
+            const pronunciationAssessmentConfig = new sdk.PronunciationAssessmentConfig(
+                referenceText,
+                sdk.PronunciationAssessmentGradingSystem.HundredMark,
+                sdk.PronunciationAssessmentGranularity.Phoneme,
+                true
+            );
+            pronunciationAssessmentConfig.enableProsodyAssessment = true;
+            pronunciationAssessmentConfig.applyTo(reco);
+
+            reco.recognizing = function (s, e) {
+                console.log("(recognizing) Reason: " + sdk.ResultReason[e.result.reason] + " Text: " + e.result.text);
+            };
+
+            reco.recognized = function (s, e) {
+                console.log("pronunciation assessment for: ", e.result.text);
+                const pronunciation_result = sdk.PronunciationAssessmentResult.fromResult(e.result);
+                console.log(" Accuracy score: ", pronunciation_result.accuracyScore, '\n',
+                    "pronunciation score: ", pronunciation_result.pronunciationScore, '\n',
+                    "completeness score : ", pronunciation_result.completenessScore, '\n',
+                    "fluency score: ", pronunciation_result.fluencyScore
+                );
+
+                const jo = JSON.parse(e.result.properties.getProperty(sdk.PropertyId.SpeechServiceResponse_JsonResult));
+                const nb = jo["NBest"][0];
+                const localtext = nb.Words.map(item => item.Word.toLowerCase());
+                currentText = currentText.concat(localtext);
+            };
+
+            reco.canceled = function (s, e) {
+                if (e.reason === sdk.CancellationReason.Error) {
+                    console.log("(cancel) Reason: " + sdk.CancellationReason[e.reason] + ": " + e.errorDetails);
+                }
+                reco.stopContinuousRecognitionAsync();
+            };
+
+            reco.sessionStopped = function (s, e) {
+                reco.stopContinuousRecognitionAsync();
+            };
+
+            reco.startContinuousRecognitionAsync();
+
+            startRecordingTimer();
+            stopRecordingButton.classList.remove("hidden");
+            durationDisplay.classList.remove("hidden");
+            assessPronunciationButton.classList.add("hidden");
+        }
+
+        function stopRecognition() {
+            if (reco) {
+                reco.stopContinuousRecognitionAsync(() => {
+                    stopRecordingTimer();
+                    stopRecordingButton.classList.add("hidden");
+                    durationDisplay.classList.add("hidden");
+                    assessPronunciationButton.classList.remove("hidden");
+                });
+            }
+        }
+
+        function startRecordingTimer() {
+            recordingStartTime = Date.now();
+            recordingInterval = setInterval(() => {
+                const duration = Math.floor((Date.now() - recordingStartTime) / 1000);
+                durationSpan.textContent = duration;
+            }, 1000);
+        }
+
+        function stopRecordingTimer() {
+            clearInterval(recordingInterval);
+            durationSpan.textContent = "0";
+        }
+
+        function assessPronunciation() {
+            if (currentText.length === 0) {
+                feedbackContent.innerHTML = `<p>Please finish speaking before assessing pronunciation.</p>`;
+                return;
+            }
+
+            // Your existing assessment logic here
+
+            feedbackContent.innerHTML = `
+            <p>Paragraph pronunciation score: ${scoreNumber.pronScore}</p>
+            <p>Accuracy score: ${scoreNumber.accuracyScore}</p>
+            <p>Completeness score: ${scoreNumber.compScore}</p>
+            <p>Fluency score: ${scoreNumber.fluencyScore}</p>
+            <p>Prosody score: ${scoreNumber.prosodyScore}</p>
+        `;
+        }
+    });
+</script>
+</body>
+</html>
